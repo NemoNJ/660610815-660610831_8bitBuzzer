@@ -20,7 +20,7 @@ void IRAM_ATTR toggleBuzzer() {//เปิด ปิด
 //ตรวจด้วย logic analyzer
 void IRAM_ATTR changeSpeed() {
     unsigned long currentTime = millis();
-    if (currentTime - lastPressTime > 1000) { // กัน debounce ที่ 4000ms
+    if (currentTime - lastPressTime > 1000) { // กัน debounce ที่ 1000ms
         speedIndex = (speedIndex + 1) % 5; // เปลี่ยนระดับความเร็ว
         Serial.print(" ");
         Serial.print("SPEED : ");
