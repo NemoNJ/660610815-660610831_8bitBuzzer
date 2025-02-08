@@ -1,0 +1,53 @@
+#define BUZZER_PIN 25 
+#define BUTTON_PIN 23   // ปุ่มเปลี่ยนความเร็ว
+#define led 22
+hw_timer_t *timer = NULL;//เหมือนอาจารย์
+volatile int noteIndex = 0;
+volatile int speedIndex = 0; // เริ่มต้นที่ความเร็วปกติ volatile อาจถูกเปลี่ยนด้วย intterupt
+bool state = false;
+//เก็บค่าความถี่ของโน้ตที่จะเล่น
+const int notes[] = { 1047, 1047, 1175, 1047, 1397, 1319,1047, 1047, 1175, 1047, 1568, 1397, 1047, 1047, 2093, 1760, 1397, 1319, 1175, 1865, 1865, 1760, 1397, 1568, 1397}; //อ้างอิงจากตารางของอาจารย์
+//เก็บระยะเวลาในการเล่นแต่ละโน้ต
+const int noteDurations[] = {  300, 300, 400, 400, 400, 500,  300, 300, 400, 400, 400, 500,   300, 300, 500, 500, 400, 400, 600, 300, 300, 500, 400, 400, 600  };
+// ใช้ปรับระดับความเร็ว 5 ระดับ array 0-4
+const float speedLevels[] = {4.0, 2.0, 1.0, 0.5, 0.25};
+unsigned long lastPressTime = 0;
+
+void IRAM_ATTR toggleBuzzer() {//เปิด ปิด
+    state = !state;
+    digitalWrite(BUZZER_PIN, state);
+}
+//ตรวจด้วย logic analyzer
+void IRAM_ATTR changeSpeed() {
+    unsigned long currentTime = millis();
+    if (currentTime - lastPressTime > 1000) { // กัน debounce ที่ 4000ms
+        speedIndex = (speedIndex + 1) % 5; // เปลี่ยนระดับความเร็ว
+        Serial.print(" ");
+        Serial.print("SPEED : ");
+        Serial.println(speedIndex+1);
+        lastPressTime = currentTime; // อัปเดตเวลาล่าสุดที่กดปุ่ม
+    }
+}
+void setup() {
+    Serial.begin(9600);
+    pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(led, OUTPUT);
+    pinMode(BUTTON_PIN, INPUT);
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), changeSpeed, FALLING);//pull up ใช้กดเพื่อเปลี่ยน speed
+    // ตั้งค่า Timer
+    timer = timerBegin(1000000); // กำหนดความถี่ 1 kHz
+    timerAttachInterrupt(timer, &toggleBuzzer);
+    timerAlarm(timer, (1000000 / (2 * notes[noteIndex])), true , 0);//กำหนดเวลาเล่นโน้ตตอนนี้
+}
+void loop() {
+    static unsigned long lastNoteChange = 0;
+    unsigned long noteDuration = noteDurations[noteIndex] * speedLevels[speedIndex];//ความเร็วแปรตามความยาวโน้ตกับความเร็วถ้าต้องการเร็วมากต้องให้ ค่า  speedLevels ต่ำ
+    if (millis() - lastNoteChange >= noteDuration) {
+        lastNoteChange = millis();
+        noteIndex++;
+        if (noteIndex >= sizeof(notes) / sizeof(notes[0])) {
+            noteIndex = 0;
+        }//เมื่อจบเริ่มใหม่
+        timerAlarm(timer, (1000000 / (2 * notes[noteIndex])), true , 0);
+    }
+}
